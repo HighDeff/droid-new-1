@@ -1,0 +1,7 @@
+{
+  "name": "Droid Assist",
+  "description": "An AI accessibility assistant that sees your screen, clears intrusive ads, records and replays drift-corrected workflows, and controls your PC.",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
