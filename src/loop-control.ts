@@ -2,82 +2,163 @@ export type StageId =
   | 'executor'
   | 'grounding'
   | 'planner'
+  | 'reflect'
+  | 'verdict'
   | 'screenWatcher'
   | 'supervisor'
   | 'subagents'
   | 'popup'
   | 'goal'
-  | 'drift';
+  | 'drift'
+  | 'identify'
+  | 'screenResponder';
 
-export interface StageInfo {
+export type StageGroup = 'pipeline' | 'agent';
+
+export interface StageDefinition {
+  id: StageId;
   name: string;
   description: string;
-  group: 'pipeline' | 'agent' | 'executor';
+  group: StageGroup;
+  verification?: boolean;
 }
 
-export function stageOf(id: StageId): StageInfo {
-  if (id === 'executor' || id === 'grounding') return { name: id, description: '', group: 'executor' };
-  if (id === 'planner' || id === 'goal') return { name: id, description: '', group: 'pipeline' };
-  return { name: id, description: '', group: 'agent' };
-}
+export const STAGES: readonly StageDefinition[] = [
+  {
+    id: 'executor',
+    name: 'Step Executor',
+    description: 'Dispatches pointer and keyboard actions',
+    group: 'pipeline',
+    verification: false,
+  },
+  {
+    id: 'grounding',
+    name: 'Target Grounding',
+    description: 'Verifies element location before action',
+    group: 'pipeline',
+    verification: true,
+  },
+  {
+    id: 'planner',
+    name: 'Workflow Planner',
+    description: 'Generates steps to achieve goal',
+    group: 'pipeline',
+    verification: false,
+  },
+  {
+    id: 'reflect',
+    name: 'Step Reflection',
+    description: 'Inspects outcome after execution',
+    group: 'pipeline',
+    verification: true,
+  },
+  {
+    id: 'verdict',
+    name: 'Step Verdict',
+    description: 'Determines step success/failure',
+    group: 'pipeline',
+    verification: true,
+  },
+  {
+    id: 'goal',
+    name: 'Goal Verifier',
+    description: 'Verifies overall workflow goal completion',
+    group: 'pipeline',
+    verification: true,
+  },
+  {
+    id: 'screenWatcher',
+    name: 'Screen Watcher',
+    description: 'Notes screen changes and proposes adjustments',
+    group: 'agent',
+    verification: false,
+  },
+  {
+    id: 'supervisor',
+    name: 'Supervisor',
+    description: 'Monitors progress and initiates fixes',
+    group: 'agent',
+    verification: false,
+  },
+  {
+    id: 'subagents',
+    name: 'Subagents',
+    description: 'Parallel link and route verification tests',
+    group: 'agent',
+    verification: false,
+  },
+  {
+    id: 'popup',
+    name: 'Popup Watcher',
+    description: 'Identifies and auto-closes intrusive popups',
+    group: 'agent',
+    verification: false,
+  },
+  {
+    id: 'drift',
+    name: 'Drift Monitor',
+    description: 'Tracks coordinate and layout stability',
+    group: 'agent',
+    verification: true,
+  },
+];
 
-export interface StageGroup {
-  id: string;
-  name: string;
-  stages: StageId[];
-}
+const STAGE_MAP = new Map<StageId, StageDefinition>(STAGES.map((s) => [s.id, s]));
 
-export const STAGES: Record<StageId, { name: string; description: string }> = {
-  executor: { name: 'Step Executor', description: 'Dispatches pointer and keyboard actions' },
-  screenWatcher: { name: 'Screen Watcher', description: 'Notes screen changes and proposes adjustments' },
-  supervisor: { name: 'Supervisor', description: 'Monitors progress and initiates fixes' },
-  subagents: { name: 'Subagents', description: 'Parallel link and route verification tests' },
-  popup: { name: 'Popup Watcher', description: 'Identifies and auto-closes intrusive popups' },
-  goal: { name: 'Goal Verifier', description: 'Verifies overall workflow goal completion' },
-  drift: { name: 'Drift Monitor', description: 'Tracks coordinate and layout stability' },
-};
+export function stageOf(id: StageId): StageDefinition {
+  return (
+    STAGE_MAP.get(id) || {
+      id,
+      name: id,
+      description: '',
+      group: 'pipeline',
+    }
+  );
+}
 
 export const DEFAULT_STAGES: Record<StageId, boolean> = {
   executor: true,
+  grounding: true,
+  planner: true,
+  reflect: true,
+  verdict: true,
   screenWatcher: true,
   supervisor: true,
   subagents: true,
   popup: true,
   goal: true,
   drift: true,
+  identify: true,
+  screenResponder: true,
 };
 
 export function sanitizeStages(raw: unknown): Record<StageId, boolean> {
   const res = { ...DEFAULT_STAGES };
   if (!raw || typeof raw !== 'object') return res;
   for (const k of Object.keys(DEFAULT_STAGES) as StageId[]) {
-    if (typeof (raw as any)[k] === 'boolean') {
-      res[k] = (raw as any)[k];
+    if (typeof (raw as Record<string, unknown>)[k] === 'boolean') {
+      res[k] = (raw as Record<string, boolean>)[k];
     }
   }
   return res;
 }
 
 export function createStageControllers(): Record<StageId, AbortController> {
-  return {
-    executor: new AbortController(),
-    screenWatcher: new AbortController(),
-    supervisor: new AbortController(),
-    subagents: new AbortController(),
-    popup: new AbortController(),
-    goal: new AbortController(),
-    drift: new AbortController(),
-  };
+  const controllers = {} as Record<StageId, AbortController>;
+  for (const k of Object.keys(DEFAULT_STAGES) as StageId[]) {
+    controllers[k] = new AbortController();
+  }
+  return controllers;
 }
 
 export function stageOff(id: StageId): string {
-  return `${STAGES[id]?.name || id} is disabled in Loop Control`;
+  return `${stageOf(id).name} is disabled in Loop Control`;
 }
 
 export function toggleMessage(id: StageId, on: boolean): string {
-  return `${STAGES[id]?.name || id} ${on ? 'enabled' : 'disabled'}`;
+  return `${stageOf(id).name} ${on ? 'enabled' : 'disabled'}`;
 }
 
-export function unverifiedStages(stages: Record<StageId, boolean>): StageId[] {
-  return (Object.keys(DEFAULT_STAGES) as StageId[]).filter((k) => !stages[k]);
+export function unverifiedStages(stages: Record<string, boolean> = {}): StageDefinition[] {
+  return STAGES.filter((s) => s.verification && !stages[s.id]);
 }

@@ -69,34 +69,36 @@ export function WatcherPanel({ engine }: { engine: AssistEngine }) {
 /** Ruler: the clicked polyline's per-segment and total distances, saved measurements, baseline and recalibration. */
 export function RulerPanel({ engine }: { engine: AssistEngine }) {
   const { ruler } = engine;
-  const m = ruler.measurement;
-  const where = ruler.frameId === null ? 'live frame' : `frame #${ruler.frameId}`;
+  const m = ruler?.measurement;
+  const where = ruler?.frameId == null ? 'live frame' : `frame #${ruler.frameId}`;
+  const pointsCount = ruler?.points?.length ?? 0;
+  const measurements = ruler?.measurements ?? [];
   return (
     <section className={styles.panel}>
-      <h3>Ruler <small>{ruler.on ? `measuring the ${where}` : 'off — press 📏 Ruler'}</small></h3>
+      <h3>Ruler <small>{ruler?.on ? `measuring the ${where}` : 'off — press 📏 Ruler'}</small></h3>
       <div className={styles.group}>
-        <button type="button" onClick={ruler.undo} disabled={!ruler.points.length}>↶ Undo point</button>
-        <button type="button" onClick={ruler.clear} disabled={!ruler.points.length}>Clear</button>
-        <button type="button" onClick={ruler.saveRuler} disabled={!m?.segments.length}>Keep measurement</button>
-        {ruler.frameId !== null && <button type="button" onClick={() => ruler.measureFrame(null)}>Back to live</button>}
-        <button type="button" onClick={ruler.setBaseline}>Set baseline</button>
-        <button type="button" onClick={() => ruler.recalibrateNow('manual')} disabled={!ruler.baseline}>⟲ Recalibrate</button>
+        <button type="button" onClick={ruler?.undo} disabled={!pointsCount}>↶ Undo point</button>
+        <button type="button" onClick={ruler?.clear} disabled={!pointsCount}>Clear</button>
+        <button type="button" onClick={ruler?.saveRuler} disabled={!(m?.segments?.length)}>Keep measurement</button>
+        {ruler?.frameId != null && <button type="button" onClick={() => ruler.measureFrame(null)}>Back to live</button>}
+        <button type="button" onClick={ruler?.setBaseline}>Set baseline</button>
+        <button type="button" onClick={() => ruler?.recalibrateNow('manual')} disabled={!ruler?.baseline}>⟲ Recalibrate</button>
       </div>
-      {m && m.segments.length > 0 ? (
+      {m && m.segments && m.segments.length > 0 ? (
         <ul aria-label="Ruler segments">
           {m.segments.map((s, i) => <li key={i}>{segmentLine(s, i)}</li>)}
           <li><b>Total {m.totalPx}px ({m.totalPct}% of screen, {m.srcW}×{m.srcH})</b></li>
         </ul>
       ) : (
-        <p className={styles.muted}>{ruler.points.length} point(s) — click at least two points on the screen.</p>
+        <p className={styles.muted}>{pointsCount} point(s) — click at least two points on the screen.</p>
       )}
       <p className={styles.muted}>
-        Baseline: {ruler.baseline ? `${ruler.baseline.a && ruler.baseline.b ? `"${ruler.baseline.a.name}" ↔ "${ruler.baseline.b.name}", ` : ''}grid ${Math.round(ruler.baseline.cellW)}×${Math.round(ruler.baseline.cellH)}px` : 'not set'}
-        {ruler.calibration && ` · last recalibration: ${ruler.calibration.detail}${ruler.calibration.drift ? ' (rescaled)' : ''}`}
+        Baseline: {ruler?.baseline ? `${ruler.baseline.a && ruler.baseline.b ? `"${ruler.baseline.a.name}" ↔ "${ruler.baseline.b.name}", ` : ''}grid ${Math.round(ruler.baseline.cellW)}×${Math.round(ruler.baseline.cellH)}px` : 'not set'}
+        {ruler?.calibration && ` · last recalibration: ${ruler.calibration.detail}${ruler.calibration.drift ? ' (rescaled)' : ''}`}
       </p>
-      {ruler.measurements.length > 0 && (
+      {measurements.length > 0 && (
         <ol aria-label="Saved measurements">
-          {ruler.measurements.map((s) => <li key={s.id}><b>{s.by}</b>: {s.line}</li>)}
+          {measurements.map((s) => <li key={s.id}><b>{s.by}</b>: {s.line}</li>)}
         </ol>
       )}
     </section>
@@ -267,7 +269,7 @@ export function LoopControlPanel({ engine }: { engine: AssistEngine }) {
           <h4>{title}</h4>
           {STAGES.filter((s) => s.group === group).map((s) => (
             <label key={s.id} className={styles.agent}>
-              <input type="checkbox" checked={settings.stages[s.id]} onChange={(e) => toggleStage(s.id, e.target.checked)} />
+              <input type="checkbox" checked={Boolean(settings?.stages?.[s.id])} onChange={(e) => toggleStage(s.id, e.target.checked)} />
               <span><strong>{s.name}</strong><small>{s.description}</small></span>
             </label>
           ))}
