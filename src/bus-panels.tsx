@@ -7,7 +7,8 @@ const TONE: Record<SubagentStatus, 'ok' | 'error' | 'warn' | 'info'> = { pass: '
 
 /** The inter-agent bus: each agent's inbox of forwarded elements, with timestamps and what it did. */
 export function AgentBusPanel({ engine }: { engine: AssistEngine }) {
-  const { bus, knownElements } = engine;
+  const bus = engine?.bus ?? [];
+  const knownElements = engine?.knownElements ?? [];
   return (
     <section className={styles.panel} aria-label="Agent bus">
       <h3>Agent bus <small>{bus.length} message(s) · {knownElements.length} predefined</small></h3>
@@ -17,7 +18,7 @@ export function AgentBusPanel({ engine }: { engine: AssistEngine }) {
         if (!box.length) return null;
         return (
           <details key={id} open>
-            <summary>{BUS_AGENTS[id]} <small>{box.filter((m) => m.status === 'queued').length} queued</small></summary>
+            <summary>{BUS_AGENTS[id]} <small>{(box || []).filter((m) => m && m.status === 'queued').length} queued</small></summary>
             <ul className={styles.log}>
               {box.map((m) => (
                 <li key={m.id} data-tone={m.status === 'handled' ? 'ok' : 'info'}>
@@ -35,7 +36,8 @@ export function AgentBusPanel({ engine }: { engine: AssistEngine }) {
 /** The latest link/route test: one row per subagent with pass/fail, screenshots and thinking. */
 export function SubagentReportPanel({ engine }: { engine: AssistEngine }) {
   const { subReport, subRunning, stop } = engine;
-  const counts = subReport ? tally(subReport.results) : null;
+  const results = subReport?.results ?? [];
+  const counts = subReport ? tally(results) : null;
   return (
     <section className={styles.panel} aria-label="Subagent report">
       <h3>Link / route tests {counts && <small>{counts.pass} pass · {counts.fail} fail · {counts.aborted} aborted · {counts.skipped} skipped</small>}</h3>
@@ -43,7 +45,7 @@ export function SubagentReportPanel({ engine }: { engine: AssistEngine }) {
       {!subReport && <p className={styles.muted}>Try "/test links Files, Notes" or "/test route Cart &gt; Checkout &gt; Pay".</p>}
       {subReport && <p className={styles.muted}>{subReport.goal}{subReport.finished ? '' : ' — running…'}</p>}
       <ul className={styles.log}>
-        {subReport?.results.map((r) => (
+        {results.map((r) => (
           <li key={r.id} data-tone={TONE[r.status]}>
             <b>{r.status.toUpperCase()}</b> {r.label} <small>budget {r.budget}{r.dry ? ' · dry run' : ''}</small> — {r.message}
             {r.shots.map((f) => <img key={f.id} src={f.url} alt={`After ${r.label}`} width={96} />)}

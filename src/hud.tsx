@@ -97,10 +97,11 @@ export function SafetyControls({ engine }: { engine: AssistEngine }) {
 /** Primary HUD: screen source, record / replay / self-test, goal + AI plan. */
 export function Hud({ engine }: { engine: AssistEngine }) {
   const { source, recording, replaying, goal, setGoal, settings, setSettings, steps, progress, plays, aiStatus, aiBusy } = engine;
-  const aiOff = aiStatus.state !== 'online';
-  const aiTitle = aiOff ? aiStatus.detail : undefined;
-  const total = steps.length;
-  const done = steps.filter((s) => s.status === 'done').length;
+  const aiOff = aiStatus?.state !== 'online';
+  const aiTitle = aiOff ? aiStatus?.detail : undefined;
+  const safeSteps = steps ?? [];
+  const total = safeSteps.length;
+  const done = safeSteps.filter((s) => s && s.status === 'done').length;
   return (
     <>
       <div className={styles.hud}>

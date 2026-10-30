@@ -127,6 +127,7 @@ export function loadLog(): LogEntry[] {
 
 /** Persists the newest LOG_LIMIT log entries. */
 export function saveLog(log: LogEntry[]) {
+  if (!Array.isArray(log)) return;
   // Screenshot evidence is too large for localStorage; JSON drops the undefined field.
   writeJson(KEYS.log, log.slice(0, LOG_LIMIT).map((l) => (l.shots ? { ...l, shots: undefined } : l)));
 }
@@ -174,9 +175,10 @@ export async function loadCards(): Promise<SavedCard[]> {
 
 /** Persists the cards; when they do not fit, retries without step screenshots. */
 export function saveCards(cards: SavedCard[]) {
+  if (!Array.isArray(cards)) return;
   const toStored = (keepFrames: boolean): StoredCard[] => cards.map((c) => ({
     ...c,
-    steps: c.steps.map(({ refFrame, ...s }) => (keepFrames && refFrame ? { ...s, refFrame: toStoredFrame(refFrame) } : s)),
+    steps: (c.steps || []).map(({ refFrame, ...s }) => (keepFrames && refFrame ? { ...s, refFrame: toStoredFrame(refFrame) } : s)),
   }));
   if (!writeJson(KEYS.cards, toStored(true))) writeJson(KEYS.cards, toStored(false));
 }
@@ -200,12 +202,14 @@ export function loadOutbox(): ErrorReport[] {
 
 /** Persists the newest OUTBOX_LIMIT reports; when they do not fit, retries without screenshots. */
 export function saveOutbox(outbox: ErrorReport[]) {
+  if (!Array.isArray(outbox)) return;
   const kept = outbox.slice(0, OUTBOX_LIMIT);
   if (!writeJson(KEYS.outbox, kept)) writeJson(KEYS.outbox, kept.map((r) => ({ ...r, screenshot: null })));
 }
 
 /** Persists the newest PATTERN_LIMIT learned patterns. */
 export function savePatterns(patterns: LearnedPattern[]) {
+  if (!Array.isArray(patterns)) return;
   writeJson(KEYS.patterns, patterns.slice(0, PATTERN_LIMIT));
 }
 
@@ -254,6 +258,7 @@ export async function loadElementMap(): Promise<MappedElement[]> {
 
 /** Persists the element map; when it does not fit, retries without the frames. */
 export function saveElementMap(list: MappedElement[]) {
+  if (!Array.isArray(list)) return;
   const kept = list.slice(0, MAP_LIMIT);
   const withFrames: StoredMapped[] = kept.map(({ frame, ...m }) => (frame ? { ...m, frame: toStoredFrame(frame) } : m));
   if (!writeJson(KEYS.elementMap, withFrames)) writeJson(KEYS.elementMap, kept.map(({ frame: _frame, ...m }) => m));
@@ -261,6 +266,7 @@ export function saveElementMap(list: MappedElement[]) {
 
 /** Persists the familiar elements; when they do not fit, retries without their screenshot patches. */
 export function saveFamiliar(elements: FamiliarElement[]) {
+  if (!Array.isArray(elements)) return;
   const kept = elements.slice(0, FAMILIAR_LIMIT);
   if (!writeJson(KEYS.familiar, kept)) writeJson(KEYS.familiar, kept.map(({ patch: _patch, ...e }) => e));
 }
@@ -299,6 +305,7 @@ export function loadHabits(now = Date.now()): Habit[] {
 
 /** Persists the habits after pruning stale and low-value ones. */
 export function saveHabits(habits: Habit[], now = Date.now()) {
+  if (!Array.isArray(habits)) return;
   writeJson(KEYS.habits, pruneHabits(habits, now));
 }
 
@@ -325,11 +332,19 @@ const listOf = <T>(v: unknown, guard: (x: unknown) => x is T, limit: number): T[
 /** The stored Screen watcher notes, proposals and test results; invalid entries are dropped. */
 export function loadWatcher(): WatcherState {
   const stored = readJson(KEYS.watcher);
-  if (!isObject(stored)) return EMPTY_WATCHER;
-  return { notes: listOf(stored.notes, isNote, NOTE_LIMIT), proposals: listOf(stored.proposals, isProposal, PROPOSAL_LIMIT), tests: listOf(stored.tests, isTest, TEST_LIMIT) };
+  if (!isObject(stored)) return { notes: [], proposals: [], tests: [] };
+  return {
+    notes: listOf(stored.notes, isNote, NOTE_LIMIT),
+    proposals: listOf(stored.proposals, isProposal, PROPOSAL_LIMIT),
+    tests: listOf(stored.tests, isTest, TEST_LIMIT),
+  };
 }
 
 /** Persists the Screen watcher state, capped per list. */
-export function saveWatcher(state: WatcherState) {
-  writeJson(KEYS.watcher, { notes: state.notes.slice(0, NOTE_LIMIT), proposals: state.proposals.slice(0, PROPOSAL_LIMIT), tests: state.tests.slice(0, TEST_LIMIT) });
+export function saveWatcher(state?: Partial<WatcherState> | null) {
+  if (!state || typeof state !== 'object') return;
+  const notes = Array.isArray(state.notes) ? state.notes.slice(0, NOTE_LIMIT) : [];
+  const proposals = Array.isArray(state.proposals) ? state.proposals.slice(0, PROPOSAL_LIMIT) : [];
+  const tests = Array.isArray(state.tests) ? state.tests.slice(0, TEST_LIMIT) : [];
+  writeJson(KEYS.watcher, { notes, proposals, tests });
 }

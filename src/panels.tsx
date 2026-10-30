@@ -42,12 +42,16 @@ function ProposalItem({ engine, p }: { engine: AssistEngine; p: WatchProposal })
 
 /** The Screen watcher: timestamped notes, proposals with Accept / Dismiss / Test, and test results. */
 export function WatcherPanel({ engine }: { engine: AssistEngine }) {
-  const { notes, proposals, tests } = engine.watcher;
-  const on = engine.settings.stages.screenWatcher;
+  const watcher = engine?.watcher ?? { notes: [], proposals: [], tests: [] };
+  const notes = watcher.notes ?? [];
+  const proposals = watcher.proposals ?? [];
+  const tests = watcher.tests ?? [];
+  const on = Boolean(engine?.settings?.stages?.screenWatcher);
+  const pendingCount = proposals.filter((p) => p && p.status === 'pending').length;
   return (
     <section className={styles.panel} aria-label="Watcher">
-      <h3>Watcher <small>{on ? `observing every ${(engine.settings.watchMs / 1000).toFixed(1)} s` : 'off — enable Screen watcher in Agents'}</small></h3>
-      <h4>Proposals <small>{proposals.filter((p) => p.status === 'pending').length} pending</small></h4>
+      <h3>Watcher <small>{on ? `observing every ${((engine?.settings?.watchMs ?? 5000) / 1000).toFixed(1)} s` : 'off — enable Screen watcher in Agents'}</small></h3>
+      <h4>Proposals <small>{pendingCount} pending</small></h4>
       <ul className={styles.log}>{proposals.map((p) => <ProposalItem key={p.id} engine={engine} p={p} />)}</ul>
       <h4>Tests <small>{tests.length}</small></h4>
       <ul className={styles.log}>
@@ -60,7 +64,7 @@ export function WatcherPanel({ engine }: { engine: AssistEngine }) {
       <h4>Notes <small>{notes.length}</small></h4>
       {!notes.length && <p className={styles.muted}>Notes on notable elements, changes and opportunities appear here while the watcher runs.</p>}
       <ul className={styles.log}>
-        {notes.map((n) => <li key={n.id}><small>{clock(n.time)}</small> <b>{NOTE_LABEL[n.kind]}</b> {n.text}</li>)}
+        {notes.map((n) => <li key={n.id}><small>{clock(n.time)}</small> <b>{NOTE_LABEL[n.kind] ?? 'Note'}</b> {n.text}</li>)}
       </ul>
     </section>
   );
@@ -141,7 +145,8 @@ export function ComparisonGallery({ engine }: { engine: AssistEngine }) {
 
 /** Live task assembly: the workflow's steps with status, drift and inline editing. */
 export function WorkflowPanel({ engine }: { engine: AssistEngine }) {
-  const { steps, setSteps, draftCard, setDraftCard } = engine;
+  const steps = engine?.steps ?? [];
+  const { setSteps, draftCard, setDraftCard } = engine;
   return (
     <section className={styles.panel}>
       <h3>Workflow <small>{steps.length} step(s)</small></h3>
@@ -182,16 +187,17 @@ export function WorkflowPanel({ engine }: { engine: AssistEngine }) {
 
 /** Saved workflow cards for comparison and later selection. */
 export function LibraryPanel({ engine }: { engine: AssistEngine }) {
+  const cards = engine?.cards ?? [];
   return (
     <section className={styles.panel}>
-      <h3>Saved workflows <small>{engine.cards.length}</small></h3>
-      {!engine.cards.length && <p className={styles.muted}>Saved cards appear here. The planner reuses similar ones automatically.</p>}
+      <h3>Saved workflows <small>{cards.length}</small></h3>
+      {!cards.length && <p className={styles.muted}>Saved cards appear here. The planner reuses similar ones automatically.</p>}
       <div className={styles.cards}>
-        {engine.cards.map((c) => (
+        {cards.map((c) => (
           <button type="button" key={c.id} className={styles.savedCard} onClick={() => engine.loadCard(c)}>
             <strong>{c.name}</strong>
             <span>{c.description}</span>
-            <small>{c.steps.length} steps · {new Date(c.savedAt).toLocaleTimeString()}</small>
+            <small>{(c.steps || []).length} steps · {new Date(c.savedAt).toLocaleTimeString()}</small>
           </button>
         ))}
       </div>
@@ -202,6 +208,7 @@ export function LibraryPanel({ engine }: { engine: AssistEngine }) {
 /** One habit: its counts, rate, last use and lessons; unreliable ones are flagged and not auto-applied. */
 function HabitItem({ habit: h, engine }: { habit: Habit; engine: AssistEngine }) {
   const reliable = isReliable(h);
+  const lessons = h?.lessons ?? [];
   return (
     <li data-tone={reliable ? 'ok' : 'warn'}>
       <b>{h.pinned ? '📌 ' : ''}{h.target}</b>{h.context && <small> · {h.context}</small>}
@@ -210,9 +217,9 @@ function HabitItem({ habit: h, engine }: { habit: Habit; engine: AssistEngine })
       <small> · last used {new Date(h.lastUsed).toLocaleString()}</small>
       <button type="button" aria-label={`${h.pinned ? 'Unpin' : 'Pin'} habit ${h.target}`} onClick={() => engine.pinHabit(h.id)}>{h.pinned ? 'Unpin' : 'Pin'}</button>
       <button type="button" aria-label={`Delete habit ${h.target}`} onClick={() => engine.deleteHabit(h.id)}>✕</button>
-      {h.lessons.length > 0 && (
+      {lessons.length > 0 && (
         <ul>
-          {h.lessons.map((l) => <li key={`${l.kind}:${l.text}`}><b>{l.kind === 'avoid' ? 'Avoid' : 'Add'}</b> {l.text}</li>)}
+          {lessons.map((l) => <li key={`${l.kind}:${l.text}`}><b>{l.kind === 'avoid' ? 'Avoid' : 'Add'}</b> {l.text}</li>)}
         </ul>
       )}
     </li>
@@ -224,17 +231,19 @@ function HabitItem({ habit: h, engine }: { habit: Habit; engine: AssistEngine })
  * then the run-level lessons the planner applies to new goals.
  */
 export function PatternsPanel({ engine }: { engine: AssistEngine }) {
+  const habits = engine?.habits ?? [];
+  const patterns = engine?.patterns ?? [];
   return (
     <section className={styles.panel}>
-      <h3>Habits <small>{engine.habits.length}</small></h3>
-      {!engine.habits.length && <p className={styles.muted}>Each executed step's verdict builds a habit for its target: success rate, last good position and lessons.</p>}
+      <h3>Habits <small>{habits.length}</small></h3>
+      {!habits.length && <p className={styles.muted}>Each executed step's verdict builds a habit for its target: success rate, last good position and lessons.</p>}
       <ul className={styles.log} aria-label="Habits">
-        {engine.habits.map((h) => <HabitItem key={h.id} habit={h} engine={engine} />)}
+        {habits.map((h) => <HabitItem key={h.id} habit={h} engine={engine} />)}
       </ul>
-      <h3>Learned patterns <small>{engine.patterns.length}</small></h3>
-      {!engine.patterns.length && <p className={styles.muted}>After each real run the AI notes what to avoid and what to add next time.</p>}
+      <h3>Learned patterns <small>{patterns.length}</small></h3>
+      {!patterns.length && <p className={styles.muted}>After each real run the AI notes what to avoid and what to add next time.</p>}
       <ul className={styles.log}>
-        {engine.patterns.map((p) => (
+        {patterns.map((p) => (
           <li key={p.id} data-tone={p.kind === 'avoid' ? 'warn' : 'ok'}>
             <b>{p.kind === 'avoid' ? 'Avoid' : 'Add'}</b> {p.pattern}
             {p.context && <small> · {p.context}</small>}
@@ -421,15 +430,17 @@ function ErrorItem({ entry, onSend }: { entry: ForwardedError; onSend: () => voi
 
 /** Errors: everything captured for the error-fix app, with delivery status and the endpoint's last-known status. */
 export function ErrorsPanel({ engine }: { engine: AssistEngine }) {
-  const { errors, errorEndpoint: ep, settings } = engine;
-  const outbox = errors.filter((e) => e.status === 'outbox').length;
+  const errors = engine?.errors ?? [];
+  const ep = engine?.errorEndpoint ?? { state: 'unknown', time: null, detail: 'Endpoint not contacted' };
+  const settings = engine?.settings;
+  const outbox = errors.filter((e) => e && e.status === 'outbox').length;
   return (
     <section className={styles.panel} aria-label="Errors">
-      <h3>Errors <small>{errors.length} captured · {outbox} in outbox · forwarding {settings.errorForwarding ? 'on' : 'off'}</small></h3>
+      <h3>Errors <small>{errors.length} captured · {outbox} in outbox · forwarding {settings?.errorForwarding ? 'on' : 'off'}</small></h3>
       <p data-tone={ENDPOINT_TONE[ep.state]}>Endpoint: <b>{ep.state}</b>{ep.time ? ` at ${new Date(ep.time).toLocaleTimeString()}` : ''} — {ep.detail}</p>
       {!errors.length && <p className={styles.muted}>No errors captured.</p>}
       <ul className={styles.log}>
-        {errors.map((e) => <ErrorItem key={e.report.id} entry={e} onSend={() => void engine.sendErrorNow(e.report)} />)}
+        {errors.map((e) => <ErrorItem key={e.report?.id ?? Math.random()} entry={e} onSend={() => void engine.sendErrorNow(e.report)} />)}
       </ul>
     </section>
   );
@@ -439,11 +450,11 @@ export function ErrorsPanel({ engine }: { engine: AssistEngine }) {
 export function AiHelpPanel({ engine }: { engine: AssistEngine }) {
   const { aiStatus, aiAnswer, aiBusy, settings } = engine;
   const [question, setQuestion] = useState('');
-  const off = aiStatus.state !== 'online' || !settings.aiHelp;
+  const off = aiStatus?.state !== 'online' || !settings?.aiHelp;
   return (
     <section className={styles.panel}>
-      <h3>AI help <small>{settings.aiModel}</small></h3>
-      <AiStatusBadge status={aiStatus} />
+      <h3>AI help <small>{settings?.aiModel}</small></h3>
+      {aiStatus && <AiStatusBadge status={aiStatus} />}
       <form
         className={styles.row}
         onSubmit={(e) => {
@@ -454,7 +465,7 @@ export function AiHelpPanel({ engine }: { engine: AssistEngine }) {
         <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about the screen…" aria-label="Ask the AI" />
         <button type="submit" disabled={off || aiBusy || !question.trim()}>{aiBusy ? '…' : 'Ask'}</button>
       </form>
-      {aiStatus.state === 'offline' && <p className={styles.muted} role="alert">{aiStatus.detail}. AI plan, Auto act and AI help are unavailable.</p>}
+      {aiStatus?.state === 'offline' && <p className={styles.muted} role="alert">{aiStatus.detail}. AI plan, Auto act and AI help are unavailable.</p>}
       {aiAnswer && <p>{aiAnswer}</p>}
     </section>
   );
@@ -462,7 +473,7 @@ export function AiHelpPanel({ engine }: { engine: AssistEngine }) {
 
 /** Persistent history of every executed mouse/keyboard action, with JSON/CSV export. */
 export function ActionHistoryPanel({ engine }: { engine: AssistEngine }) {
-  const { history } = engine;
+  const history = engine?.history ?? [];
   return (
     <section className={styles.panel}>
       <h3>Action history <small>{history.length} action(s)</small></h3>
@@ -472,7 +483,7 @@ export function ActionHistoryPanel({ engine }: { engine: AssistEngine }) {
         <button type="button" onClick={engine.resetHistory} disabled={!history.length}>Clear</button>
       </div>
       <ul className={styles.log}>
-        {history.slice(0, 200).map((a) => (
+        {(history || []).slice(0, 200).map((a) => (
           <li key={a.id} data-tone={a.ok ? 'ok' : 'error'}>
             <time>{new Date(a.time).toLocaleTimeString()}</time> <b>{a.source}</b> {a.action} ({a.x}, {a.y}){a.endX !== undefined ? ` → (${a.endX}, ${a.endY})` : ''}{a.text ? ` "${a.text}"` : ''} · {a.via}
           </li>
@@ -660,9 +671,12 @@ function fixText(f: StepFix): string {
 
 /** Supervisor review: its assessment and the concrete updates it applied or only suggests. */
 export function SupervisorPanel({ engine }: { engine: AssistEngine }) {
-  const { supervisor, agents } = engine;
-  const { review } = supervisor;
+  const supervisor = engine?.supervisor ?? { status: 'idle', detail: '' };
+  const agents = engine?.agents ?? [];
+  const review = supervisor.review;
   const on = agents.some((a) => a.id === 'supervisor' && a.on);
+  const stepFixes = review?.stepFixes ?? [];
+  const habits = review?.habits ?? [];
   return (
     <section className={styles.panel} aria-label="Supervisor review">
       <h3>Supervisor review <small>{supervisor.status}</small></h3>
@@ -673,8 +687,8 @@ export function SupervisorPanel({ engine }: { engine: AssistEngine }) {
           <p><b>{review.planOk ? 'Plan OK' : 'Plan needs updates'}</b> · confidence {review.confidence.toFixed(2)} · {supervisor.applied ? 'auto-applied' : 'suggested only'}</p>
           <p>{review.assessment}</p>
           <ul className={styles.log}>
-            {review.stepFixes.map((f) => <li key={f.stepId} data-tone="warn">{fixText(f)}</li>)}
-            {review.habits.map((h) => <li key={`${h.kind}:${h.pattern}`} data-tone={h.kind === 'avoid' ? 'warn' : 'ok'}><b>{h.kind === 'avoid' ? 'Avoid' : 'Add'}</b> {h.pattern}</li>)}
+            {stepFixes.map((f) => <li key={f.stepId} data-tone="warn">{fixText(f)}</li>)}
+            {habits.map((h) => <li key={`${h.kind}:${h.pattern}`} data-tone={h.kind === 'avoid' ? 'warn' : 'ok'}><b>{h.kind === 'avoid' ? 'Avoid' : 'Add'}</b> {h.pattern}</li>)}
           </ul>
         </>
       )}
@@ -684,11 +698,12 @@ export function SupervisorPanel({ engine }: { engine: AssistEngine }) {
 
 /** Action record: everything the user, AI, and agents did. */
 export function LogPanel({ engine }: { engine: AssistEngine }) {
+  const log = engine?.log ?? [];
   return (
     <section className={styles.panel}>
       <h3>Activity log</h3>
       <ul className={styles.log}>
-        {engine.log.map((l) => (
+        {log.map((l) => (
           <li key={l.id} data-tone={l.tone}>
             <time>{new Date(l.time).toLocaleTimeString()}</time> <b>{l.source}</b> {l.message}
             {l.shots && (

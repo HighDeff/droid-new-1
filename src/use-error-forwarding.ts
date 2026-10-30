@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { AssistSettings, Frame, LogEntry } from './types.js';
 import type { EndpointStatus, ForwardedError, ErrorKind } from './error-forwarding.js';
 
@@ -14,7 +14,11 @@ export function useErrorForwarding(
     detail: 'Endpoint not contacted yet',
   });
 
+  const getContextRef = useRef(getContext);
+  getContextRef.current = getContext;
+
   const capture = useCallback((params: { kind: ErrorKind; message: string; goal?: string | null; step?: string | null }) => {
+    const ctx = getContextRef.current ? getContextRef.current() : { log: [], frame: null };
     const err: ForwardedError = {
       report: {
         id: `err-${Date.now()}`,
@@ -23,15 +27,15 @@ export function useErrorForwarding(
         message: params.message,
         goal: params.goal ?? null,
         step: params.step ?? null,
-        recentLog: getContext().log.slice(0, 5).map((l) => `[${l.source}] ${l.message}`),
-        screenshot: getContext().frame?.url ?? null,
+        recentLog: (ctx.log || []).slice(0, 5).map((l) => `[${l.source}] ${l.message}`),
+        screenshot: ctx.frame?.url ?? null,
       },
       status: 'not sent',
       repeats: 0,
       detail: 'Captured locally',
     };
     setErrors((prev) => [err, ...prev].slice(0, 50));
-  }, [getContext]);
+  }, []);
 
   const sendNow = useCallback(async (id: string) => {
     addLog('Error forwarding', `Dispatched error report ${id}`, 'ok');

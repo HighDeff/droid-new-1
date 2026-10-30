@@ -41,7 +41,7 @@ import { DEFAULT_STEP_RETRIES, avoidPattern, describeAttempt, runLadder, type At
 import { boxedFrames, patchAt, renderView, zoomBox, zoomFrame } from './grounding.js';
 import { parseCommand } from './commands.js';
 import { createPlanGuard } from './plan-guard.js';
-import { createScreenCapture, monitorInterval, type CapturedImage, type ScreenCapture } from './capture.js';
+import { createScreenCapture, fullJpeg, monitorInterval, type CapturedImage, type ScreenCapture } from './capture.js';
 import { DEFAULT_ABORT_HOTKEY, DEFAULT_ACTION_BUDGET, createBudget, matchesHotkey, spendAction, type ActionBudget, type HotkeyEvent } from './safety.js';
 import { continuesScroll, keyCombo, keyStep, scrollStep, stepDelay } from './recorder.js';
 import { LOG_LIMIT, loadCards, loadElementMap, loadFamiliar, loadHabits, loadLog, loadPatterns, loadSettings, loadWatcher, saveCards, saveElementMap, saveFamiliar, saveHabits, saveLog, savePatterns, saveSettings, saveWatcher } from './storage.js';
@@ -483,7 +483,6 @@ export function useAssist() {
   // AI endpoint health: at startup and whenever the endpoint or model changes.
   useEffect(() => {
     let live = true;
-    setAiStatus({ state: 'checking', detail: `Connecting to ${settings.aiUrl}…` });
     void pingAi({ url: settings.aiUrl, model: settings.aiModel }).then((status) => {
       if (!live) return;
       setAiStatus(status);
@@ -493,7 +492,7 @@ export function useAssist() {
     return () => {
       live = false;
     };
-  }, [settings.aiUrl, settings.aiModel, addLog, captureError]);
+  }, [settings.aiUrl, settings.aiModel]);
 
   /** Whether a loop-control stage is checked; read live so a toggle applies mid-run. */
   const stageOn = (id: StageId) => settingsRef.current.stages[id];
@@ -1565,6 +1564,7 @@ export function useAssist() {
    * watcher's special case; any other change is recorded and boxed. A failed assessment falls back to the popup flag.
    */
   const respondToChange = async (prev: Frame, cur: Frame, change: ScreenChange) => {
+    if (!change || !change.box) return;
     const next = describeNext(stepsRef.current.find((s) => s.status === 'pending' || s.status === 'running'));
     const where = `(${pct(change.box.x)}, ${pct(change.box.y)}) ${pct(change.box.w)}×${pct(change.box.h)}`;
     try {
@@ -1594,7 +1594,7 @@ export function useAssist() {
     const base = changeBaseRef.current ?? prev;
     changeBaseRef.current = cur;
     const change = detectChange(base.data, cur.data, settingsRef.current.changeCells);
-    if (!change) return;
+    if (!change || !change.changed || !change.box) return;
     if (!stageOn('screenResponder') || !aiOnline()) {
       flagPopup(base, cur, change.box);
       return;

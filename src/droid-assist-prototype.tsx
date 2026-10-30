@@ -24,6 +24,7 @@ import {
 } from './panels.js';
 import { AgentBusPanel, SubagentReportPanel } from './bus-panels.js';
 import { WorkflowPacksStudio } from './workflow-packs.js';
+import { WorkflowSelfAnalyzer } from './workflow-self-analyzer.js';
 import styles from './droid-assist.module.css';
 
 /** The Droid Assist workspace: live screen + overlay, HUDs, workflow packs, gallery, agents and log. */
@@ -49,6 +50,7 @@ function AssistScreen() {
         <div className={styles.work}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <Stage engine={engine} />
+            <WorkflowSelfAnalyzer engine={engine} />
             <WorkflowPacksStudio engine={engine} />
           </div>
           <div className={styles.side}>
